@@ -15,6 +15,7 @@ import {
 
 interface IQuillToolbarEntry{
     element: HTMLElement;
+    id: string;
     name: string;
     action?: string;
     match?: string | boolean;
@@ -69,18 +70,17 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
         }
 
         let addToolbarItem = (name: string, match?: string | boolean, action?: string) => {
-            if (name in details.toolbar){
-                return;
-            }
-
             let bindPrompt = (action: string, defaultValue = '') => {
                 let input = contextElement.querySelector('input'), onEvent = (e: Event) => {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    details.quillInstance?.format(action, input!.value);
+                    try{
+                        details.quillInstance?.format(action, input!.value);
+                    }
+                    catch{}
+                    
                     input!.value = defaultValue;
-
                     contextElement.dispatchEvent(new CustomEvent(`${QuillDirectiveName}.done`));
                 };
 
@@ -95,18 +95,16 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
                 }
             };
 
-            let prompt = (name.endsWith('.prompt') && name.substring(0, (name.length + '.prompt'.length)));
+            let prompt = (name.endsWith('.prompt') && name.substring(0, (name.length - '.prompt'.length)));
             if (prompt){//Prompt handled
-                bindPrompt(prompt, ((prompt === 'link') ? 'https://' : ''));
-                return;
+                return (!details.toolbar.hasOwnProperty(name) && bindPrompt(prompt, ((prompt === 'link') ? 'https://' : '')));
             }
 
             if (name === 'container'){
-                details.mounts.container = contextElement;
-                return;
+                return (!details.toolbar.hasOwnProperty(name) && (details.mounts.container = contextElement));
             }
 
-            let id = resolvedComponent!.GenerateUniqueId(`${QuillDirectiveName}_proxy_`), toolbarEntry: IQuillToolbarEntry = { name, action, match,
+            let id = resolvedComponent!.GenerateUniqueId(`${QuillDirectiveName}_proxy_`), toolbarEntry: IQuillToolbarEntry = { id, name, action, match,
                 element: contextElement,
                 active: false,
             }, computedAction = (toolbarEntry.action || toolbarEntry.name);
@@ -127,21 +125,33 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
                 lookup: [...Object.keys(toolbarEntry), 'parent'],
             }));
 
-            details.toolbar[name] = toolbarEntry;
-            details.toolbarProxy[name] = toolbarEntryProxy;
+            if (details.toolbar.hasOwnProperty(name)){
+                let list = (Array.isArray(details.toolbar[name]) ? details.toolbar[name] : [details.toolbar[name]]);
+                list.push(toolbarEntry);
+                details.toolbar[name] = list;
+            }
+            else{
+                details.toolbar[name] = toolbarEntry;
+            }
 
             if (match){//Bind listener
                 contextElement.addEventListener('click', () => {
                     let isActive = toolbarEntry.active;
                     details.quillInstance.format(computedAction, (isActive ? false : toolbarEntry.match));
-                    toolbarEntry.active = !isActive;
-                    AddChanges('set', `${id}.active`, 'active', FindComponentById(componentId)?.GetBackend().changes);
+                    (Array.isArray(details.toolbar[name]) ? details.toolbar[name] : [details.toolbar[name]]).forEach((item: any) => {
+                        item.active = !isActive;
+                        AddChanges('set', `${item.id}.active`, 'active', FindComponentById(componentId)?.GetBackend().changes);
+                    });
                 });
             }
 
             elementScope!.AddUninitCallback(() => {
-                delete details.toolbar[name];
-                delete details.toolbarProxy[name];
+                if (Array.isArray(details.toolbar[name]) && details.toolbar[name].length > 1){
+                    details.toolbar[name].splice(details.toolbar[name].indexOf(toolbarEntry), 1);
+                }
+                else{
+                    delete details.toolbar[name];
+                }
             });
 
             elementScope!.SetLocal(localKey, toolbarEntryProxy);
@@ -169,7 +179,7 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
         return;
     }
 
-    let id = resolvedComponent.GenerateUniqueId(`${QuillDirectiveName}_proxy_`), options = ResolveOptions({
+    let options = ResolveOptions({
         options: {
             manual: false,
             readonly: false,
@@ -180,17 +190,21 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
 
     let details = {
         quillInstance: <any>null,
-        toolbar: <Record<string, IQuillToolbarEntry>>{},
-        toolbarProxy: <Record<string, any>>{},
+        toolbar: <Record<string, IQuillToolbarEntry | Array<IQuillToolbarEntry>>>{},
         mounts: {
             container: <HTMLElement | null>null,
         },
     };
 
+    let getFirstToolbarEntry = (entry: IQuillToolbarEntry | Array<IQuillToolbarEntry>) => (Array.isArray(entry) ? entry[0] : entry);
     let setActive = (name: string, value: boolean) => {
-        if (name in details.toolbar && value != details.toolbar[name].active){
-            details.toolbar[name].active = value;
-            AddChanges('set', `${id}.${name}.active`, 'active', FindComponentById(componentId)?.GetBackend().changes);
+        let changes = FindComponentById(componentId)?.GetBackend().changes;
+        if (changes && details.toolbar.hasOwnProperty(name) && value != getFirstToolbarEntry(details.toolbar[name]).active){
+            let entry = details.toolbar[name];
+            (Array.isArray(entry) ? entry : [entry]).forEach(item => {
+                item.active = value;
+                AddChanges('set', `${item.id}.active`, 'active', changes);
+            });
         }
     };
 
@@ -201,16 +215,16 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
 
         let format = details.quillInstance.getFormat();
         Object.values(details.toolbar).forEach((entry) => {
-            let isActive: boolean, action = (entry.action || entry.name);
+            let isActive: boolean, firstEntry = getFirstToolbarEntry(entry), action = (firstEntry.action || firstEntry.name);
             if (action in format){
                 let value = ((action === 'indent') ? '+1' : format[action]);
-                isActive = (entry.match === null || entry.match === undefined || entry.match === value);
+                isActive = (firstEntry.match === null || firstEntry.match === undefined || firstEntry.match === value);
             }
             else{
                 isActive = false;
             }
 
-            setActive(entry.name, isActive);
+            setActive(firstEntry.name, isActive);
         });
     };
 
