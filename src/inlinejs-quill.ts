@@ -1,5 +1,3 @@
-import { WaitForGlobal } from '@benbraide/inlinejs';
+import { InlineJSQuill } from './entry';
 
-import { QuillDirectiveHandlerCompact } from './directive/quill';
-
-WaitForGlobal().then(() => QuillDirectiveHandlerCompact());
+InlineJSQuill();
