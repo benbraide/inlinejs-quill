@@ -3,7 +3,7 @@ import Quill from "quill";
 import {
     FindComponentById,
     AddDirectiveHandler,
-    CreateDirectiveHandlerCallback,//['link', 'image', 'video', 'color', 'background', 'font', 'indent']
+    CreateDirectiveHandlerCallback,
     GetGlobal,
     JournalError,
     IResourceConcept,
