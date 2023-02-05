@@ -1,48 +1,22 @@
+import Quill from "quill";
+
 import {
     FindComponentById,
     AddDirectiveHandler,
-    CreateDirectiveHandlerCallback,
+    CreateDirectiveHandlerCallback,//['link', 'image', 'video', 'color', 'background', 'font', 'indent']
     GetGlobal,
     JournalError,
-    AddChanges,
-    BuildGetterProxyOptions,
-    BuildProxyOptions,
-    CreateInplaceProxy,
     IResourceConcept,
     BindEvent,
-    ResolveOptions
+    ResolveOptions,
+    IsObject,
+    EvaluateLater
 } from "@benbraide/inlinejs";
 
-interface IQuillToolbarEntry{
-    element: HTMLElement;
-    id: string;
-    name: string;
-    action?: string;
-    match?: string | boolean;
-    active: boolean;
-}
-
-const QuillFieldGroups = {
-    toggle: ['bold', 'italic', 'underline', 'strike', 'blockquote', 'code'],
-    size: ['size', 'small', 'normal', 'large', 'huge'],
-    header: ['header', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-    align: ['align', 'left', 'center', 'right'],
-    indent: ['indent', 'in', 'out'],
-    list: ['list', 'bullet', 'ordered'],
-    script: ['script', 'sub', 'super'],
-    direction: ['direction', 'rtl'],
-    prompts: ['link', 'image', 'video', 'color', 'background', 'font', 'indent'],
-    mounts: ['container'],
-};
-
-let QuillUrl: Array<string> | string = '';
-
-const QuillDirectiveName = 'quill';
-
-export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirectiveName, ({ componentId, component, contextElement, expression, argKey, argOptions }) => {
+export const QuillDirectiveHandler = CreateDirectiveHandlerCallback('quill', ({ componentId, component, contextElement, expression, argKey, argOptions }) => {
     if (BindEvent({ contextElement, expression,
         component: (component || componentId),
-        key: QuillDirectiveName,
+        key: 'quill',
         event: argKey,
         defaultEvent: 'ready',
         eventWhitelist: ['done'],
@@ -52,258 +26,209 @@ export const QuillDirectiveHandler = CreateDirectiveHandlerCallback(QuillDirecti
         return;
     }
 
-    let resolvedComponent = (component || FindComponentById(componentId)), elementScope = resolvedComponent?.FindElementScope(contextElement);
-    if (!resolvedComponent || !elementScope){
-        return JournalError('Failed to retrieve element scope.', `InlineJS.${QuillDirectiveName}`, contextElement);
-    }
-    
-    let localKey = `\$${QuillDirectiveName}`, detailsKey = `#${QuillDirectiveName}`;
-    if (localKey in (elementScope.GetLocals() || {})){//Already initialized
-        return;
+    let resolvedComponent = (component || FindComponentById(componentId));
+    if (!resolvedComponent){
+        return JournalError('Failed to retrieve element scope.', 'x-quill', contextElement);
     }
 
-    let groupKey = Object.keys(QuillFieldGroups).find(key => QuillFieldGroups[key].includes(argKey));
-    if (groupKey){
-        let details = resolvedComponent.FindElementLocalValue(contextElement, detailsKey, true);
-        if (!details){//No parent
-            return;
-        }
+    // let bindPrompt = (action: string, defaultValue = '') => {
+    //     let input = contextElement.querySelector('input'), onEvent = (e: Event) => {
+    //         e.preventDefault();
+    //         e.stopPropagation();
 
-        let addToolbarItem = (name: string, match?: string | boolean, action?: string) => {
-            let bindPrompt = (action: string, defaultValue = '') => {
-                let input = contextElement.querySelector('input'), onEvent = (e: Event) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+    //         try{
+    //             details.quillInstance?.format(action, input!.value);
+    //         }
+    //         catch{}
+            
+    //         input!.value = defaultValue;
+    //         contextElement.dispatchEvent(new CustomEvent(`${QuillDirectiveName}.done`));
+    //     };
 
-                    try{
-                        details.quillInstance?.format(action, input!.value);
-                    }
-                    catch{}
-                    
-                    input!.value = defaultValue;
-                    contextElement.dispatchEvent(new CustomEvent(`${QuillDirectiveName}.done`));
-                };
+    //     if (input){
+    //         input.value = defaultValue;
+    //         input.addEventListener('keydown', (e) => {
+    //             if (e.key === 'Enter'){
+    //                 onEvent(e);
+    //             }
+    //         });
+    //         contextElement.querySelector('button')?.addEventListener('click', onEvent);
+    //     }
+    // };
 
-                if (input){
-                    input.value = defaultValue;
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter'){
-                            onEvent(e);
-                        }
-                    });
-                    contextElement.querySelector('button')?.addEventListener('click', onEvent);
-                }
-            };
-
-            let prompt = (name.endsWith('.prompt') && name.substring(0, (name.length - '.prompt'.length)));
-            if (prompt){//Prompt handled
-                return (!details.toolbar.hasOwnProperty(name) && bindPrompt(prompt, ((prompt === 'link') ? 'https://' : '')));
-            }
-
-            if (name === 'container'){
-                return (!details.toolbar.hasOwnProperty(name) && (details.mounts.container = contextElement));
-            }
-
-            let id = resolvedComponent!.GenerateUniqueId(`${QuillDirectiveName}_proxy_`), toolbarEntry: IQuillToolbarEntry = { id, name, action, match,
-                element: contextElement,
-                active: false,
-            }, computedAction = (toolbarEntry.action || toolbarEntry.name);
-
-            let toolbarEntryProxy = CreateInplaceProxy(BuildGetterProxyOptions({
-                getter: (prop) => {
-                    if (prop && toolbarEntry.hasOwnProperty(prop)){
-                        if (prop === 'active'){
-                            FindComponentById(componentId)?.GetBackend().changes.AddGetAccess(`${id}.${prop}`);
-                        }
-                        return toolbarEntry[prop];
-                    }
-                    
-                    if (prop === 'parent'){
-                        return (contextElement.parentElement ? FindComponentById(componentId)?.FindElementLocalValue(contextElement.parentElement, localKey, true) : null);
-                    }
-                },
-                lookup: [...Object.keys(toolbarEntry), 'parent'],
-            }));
-
-            if (details.toolbar.hasOwnProperty(name)){
-                let list = (Array.isArray(details.toolbar[name]) ? details.toolbar[name] : [details.toolbar[name]]);
-                list.push(toolbarEntry);
-                details.toolbar[name] = list;
-            }
-            else{
-                details.toolbar[name] = toolbarEntry;
-            }
-
-            if (match){//Bind listener
-                contextElement.addEventListener('click', () => {
-                    let isActive = toolbarEntry.active;
-                    details.quillInstance.format(computedAction, (isActive ? false : toolbarEntry.match));
-                    (Array.isArray(details.toolbar[name]) ? details.toolbar[name] : [details.toolbar[name]]).forEach((item: any) => {
-                        item.active = !isActive;
-                        AddChanges('set', `${item.id}.active`, 'active', FindComponentById(componentId)?.GetBackend().changes);
-                    });
-                });
-            }
-
-            elementScope!.AddUninitCallback(() => {
-                if (Array.isArray(details.toolbar[name]) && details.toolbar[name].length > 1){
-                    details.toolbar[name].splice(details.toolbar[name].indexOf(toolbarEntry), 1);
-                }
-                else{
-                    delete details.toolbar[name];
-                }
-            });
-
-            elementScope!.SetLocal(localKey, toolbarEntryProxy);
-        };
-
-        if (groupKey === 'toggle'){
-            addToolbarItem(argKey, true, argKey);
-        }
-        else if (groupKey === 'prompts'){
-            addToolbarItem(argOptions.includes('prompt') ? `${argKey}.prompt` : argKey);
-        }
-        else if (argKey === 'container'){
-            addToolbarItem(argKey);
-        }
-        else if (argKey === groupKey){
-            addToolbarItem(groupKey);
-        }
-        else if (groupKey === 'indent'){
-            addToolbarItem(`${groupKey}.${argKey}`, ((argKey === 'out') ? '-1' : '+1'), groupKey);
-        }
-        else{//Standard
-            addToolbarItem(`${groupKey}.${argKey}`, argKey, groupKey);
-        }
-
-        return;
-    }
+    const quillKey = '$quill';
 
     let options = ResolveOptions({
         options: {
             manual: false,
             readonly: false,
             snow: false,
+            bubble: false,
         },
         list: argOptions,
     });
 
-    let details = {
-        quillInstance: <any>null,
-        toolbar: <Record<string, IQuillToolbarEntry | Array<IQuillToolbarEntry>>>{},
-        mounts: {
-            container: <HTMLElement | null>null,
+    const getEventHandlers = (event: string) => (state.eventHandlers[event] = (state.eventHandlers[event] || []));
+
+    const bindEvent = (event: 'text-change' | 'selection-change' | 'editor-change') => {
+        state.boundEvents[event] = () => {
+            let hasFocus = state.instance?.hasFocus();
+            state.instance && getEventHandlers(event).forEach(handler => handler(state.instance!, !!hasFocus));
+        };
+        state.instance?.on(<any>event, state.boundEvents[event]);
+    };
+
+    let state = {
+        theme: (options.snow ? 'snow' : (options.bubble ? 'bubble' : 'default')),
+        modules: {
+            toolbar: <Record<string, any> | boolean>false,
         },
+        instance: <Quill | null>null,
+        container: <HTMLElement | null>null,
+        eventHandlers: <{ [key: string]: Array<(instance: Quill, focused: boolean) => void> }>{},
+        boundEvents: <{ [key: string]: () => void }>{},
+        dev: {
+            setTheme(value: string){
+                state.theme = value;
+            },
+            addModule(key: string, value: any){
+                state.modules[key] = value;
+            },
+            removeModule(key: string){
+                delete state.modules[key];
+            },
+            addToolbarItem(key: string, value: any){
+                state.modules.toolbar = (IsObject(state.modules.toolbar) ? state.modules.toolbar : {});
+                state.modules.toolbar[key] = value;
+            },
+            removeToolbarItem(key: string){
+                IsObject(state.modules.toolbar) && delete state.modules.toolbar[key];
+            },
+            replaceToolbarItem(value: any){
+                state.modules.toolbar = value;
+            },
+            addEventListener(event: 'text-change' | 'selection-change' | 'editor-change', handler: (instance: Quill) => void){
+                getEventHandlers(event).push(handler);
+                (state.instance && !state.boundEvents.hasOwnProperty(event)) && bindEvent(event);
+            },
+            removeEventListener(event: 'text-change' | 'selection-change' | 'editor-change', handler: (instance: Quill) => void){
+                let handlers = getEventHandlers(event);
+                handlers.splice(handlers.indexOf(handler), 1);
+
+                if (state.boundEvents.hasOwnProperty(event) && handlers.length === 0){
+                    state.instance?.off(<any>event, state.boundEvents[event]);
+                    delete state.boundEvents[event];
+                }
+            },
+            setContainer(el: HTMLElement | null){
+                state.container = el;
+            },
+            addUrl(url: string | Array<string>){
+                state.urls = (state.urls || []);
+                state.urls.push(...(Array.isArray(url) ? url : [url]));
+            },
+            bind(){
+                let resourceConcept = GetGlobal().GetConcept<IResourceConcept>('resource');
+                if (resourceConcept && state.urls){
+                    resourceConcept.Get({
+                        items: state.urls,
+                        concurrent: true,
+                    }).then(init);
+                }
+                else{
+                    init();
+                }
+            },
+        },
+        urls: <Array<string> | null>null,
+        ready: false,
     };
 
-    let getFirstToolbarEntry = (entry: IQuillToolbarEntry | Array<IQuillToolbarEntry>) => (Array.isArray(entry) ? entry[0] : entry);
-    let setActive = (name: string, value: boolean) => {
-        let changes = FindComponentById(componentId)?.GetBackend().changes;
-        if (changes && details.toolbar.hasOwnProperty(name) && value != getFirstToolbarEntry(details.toolbar[name]).active){
-            let entry = details.toolbar[name];
-            (Array.isArray(entry) ? entry : [entry]).forEach(item => {
-                item.active = value;
-                AddChanges('set', `${item.id}.active`, 'active', changes);
-            });
-        }
-    };
-
-    let onEditorChange = () => {
-        if (!details.quillInstance.hasFocus()){
+    let elementScope = resolvedComponent.CreateElementScope(contextElement), init = () => {
+        if (state.ready || !state.container || typeof window['Quill'] !== 'function'){
             return;
         }
 
-        let format = details.quillInstance.getFormat();
-        Object.values(details.toolbar).forEach((entry) => {
-            let isActive: boolean, firstEntry = getFirstToolbarEntry(entry), action = (firstEntry.action || firstEntry.name);
-            if (action in format){
-                let value = ((action === 'indent') ? '+1' : format[action]);
-                isActive = (firstEntry.match === null || firstEntry.match === undefined || firstEntry.match === value);
-            }
-            else{
-                isActive = false;
-            }
-
-            setActive(firstEntry.name, isActive);
-        });
-    };
-
-    let ready = false, init = () => {
-        if (ready || !details.mounts.container || typeof window['Quill'] !== 'function'){
-            return;
-        }
-
-        details.quillInstance = new window['Quill'](details.mounts.container, {
-            modules: { toolbar: false },
-            theme: (options.snow ? 'snow' : 'default'),
+        state.instance = new (window['Quill'])(state.container, {
+            modules: state.modules,
+            theme: state.theme,
             readOnly: options.readonly,
         });
 
-        details.quillInstance.on('editor-change', onEditorChange);
-        ready = true;
-
-        contextElement.dispatchEvent(new CustomEvent(`${QuillDirectiveName}.ready`));
+        state.ready = true;
+        Object.keys(state.eventHandlers).forEach(event => bindEvent(<any>event));//Bind all events.
+        contextElement.dispatchEvent(new CustomEvent('quill.ready'));
     };
 
-    elementScope.SetLocal(detailsKey, details);
-    elementScope.SetLocal(localKey, CreateInplaceProxy(BuildProxyOptions({
-        getter: (prop) => {
-            if (prop === 'instance'){
-                return details.quillInstance;
-            }
-
-            if (prop === 'container'){
-                return details.mounts.container;
-            }
-
-            if (prop === 'bind'){
-                return bind;
-            }
-
-            if (prop === 'url'){
-                return QuillUrl;
-            }
+    elementScope?.SetLocal(quillKey, {
+        get root(){
+            return this;
         },
-        setter: (prop, value) => {
-            if (prop === 'container' && !details.mounts.container){
-                details.mounts.container = value;
-                if (!options.manual){
-                    init();
-                }
-            }
-
-            if (prop === 'url'){
-                QuillUrl = value;
-            }
-
-            return true;
+        get parent(){
+            return null;
         },
-        lookup: ['instance', 'container', 'bind', 'url'],
-    })));
-
-    elementScope.AddUninitCallback(() => {
-        if (details.quillInstance){
-            details.quillInstance.off('editor-change', onEditorChange);
-            details.quillInstance = null;
-        }
+        get instance(){
+            return state.instance;
+        },
+        get element(){
+            return contextElement;
+        },
+        get container(){
+            return state.container;
+        },
+        get theme(){
+            return state.theme;
+        },
+        get dev(){
+            return state.dev;
+        },
+        get isReady(){
+            return state.ready;
+        },
+        set container(value){
+            state.dev.setContainer(value);
+        },
+        set theme(value){
+            state.dev.setTheme(value);
+        },
+        addUrl(url: string | Array<string>){
+            state.dev.addUrl(url);
+        },
+        bind(){
+            state.dev.bind();
+        },
     });
 
-    let bind = () => {
-        let resourceConcept = GetGlobal().GetConcept<IResourceConcept>('resource');
-        if (QuillUrl && resourceConcept){
-            resourceConcept.Get({
-                items: QuillUrl,
-                concurrent: true,
-            }).then(init);
+    elementScope?.AddUninitCallback(() => {
+        if (state.instance){
+            Object.keys(state.boundEvents).forEach(event => state.instance!.off(<any>event, state.boundEvents[event]));
+            state.instance = null;
         }
-        else{//Resource not provided
-            init();
-        }
-    }
+        
+        state.modules.toolbar = <any>null;
+        state.modules = <any>null;
+        
+        state.container = null;
+        state.dev = <any>null;
 
-    if (!options.manual){
-        bind();
-    }
+        state.eventHandlers = <any>null;
+        state.boundEvents = <any>null;
+
+        state.ready = false;
+        state = <any>null;
+    });
+
+    EvaluateLater({ componentId, contextElement, expression })((value) => {
+        if (IsObject(value)){
+            state.theme = (value.theme || state.theme);
+            IsObject(value.modules) && (state.modules = { ...state.modules, ...value.modules });
+
+            state.modules.toolbar = (value.toolbar || state.modules.toolbar);
+            state.dev.addUrl(Array.isArray(value.urls) ? value.urls : (value.urls ? [value.urls] : []));
+
+            !options.manual && FindComponentById(componentId)?.FindElementScope(contextElement)?.AddPostProcessCallback(() => state.dev.bind());
+        }
+    });
 });
 
 export function QuillDirectiveHandlerCompact(){
