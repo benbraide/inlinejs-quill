@@ -1,6 +1,6 @@
 {
   "name": "@benbraide/inlinejs-quill",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Run javascript code by embedding them in your HTML using the element as context.",
   "main": "./lib/common/index.js",
   "module": "./lib/esm/index.js",
@@ -53,8 +53,8 @@
     "webpack": "^5.41.0"
   },
   "dependencies": {
-    "@benbraide/inlinejs": "^1.1.1",
-    "@benbraide/inlinejs-element": "^2.0.3",
+    "@benbraide/inlinejs": "^1.1.2",
+    "@benbraide/inlinejs-element": "^2.0.4",
     "webpack-cli": "^4.7.2"
   }
 }
