@@ -5,6 +5,7 @@ import { IQuillElement, IQuillPrompt, QuillEventHandlerType } from "../types";
 export declare class QuillElement extends CustomElement implements IQuillElement {
     protected quill_: Quill | null;
     protected mounting_: boolean;
+    protected mounted_: boolean;
     protected modules_: Record<string, any> | null;
     protected formats_: Record<string, any> | null;
     protected sizes_: Array<string> | null;

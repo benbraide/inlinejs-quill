@@ -280,6 +280,11 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
                     attributes: { accept: 'video/*' },
                 });
             }
+            else if (item === 'color' || item === 'background'){
+                items.push({
+                    type: 'color',
+                });
+            }
             else{
                 items.push(item);
             }
