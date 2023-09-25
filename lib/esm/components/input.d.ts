@@ -7,6 +7,7 @@ export declare class QuillInputElement extends CustomElement implements IQuillIn
     protected expandedItems_: Array<IQuillInputItem | string> | null;
     protected value_: string;
     protected file_: File | null;
+    protected confirmationHandler_: (() => void) | null;
     theme: IQuillInputTheme | string | null;
     items: Array<IQuillInputItem | string> | null;
     placeholder: string;
@@ -16,6 +17,7 @@ export declare class QuillInputElement extends CustomElement implements IQuillIn
     RemoveNativeElement(element: INativeElement): void;
     GetItems(): HTMLInputElement[];
     Reset(): void;
+    SetConfirmationHandler(handler: (() => void) | null): void;
     GetDefaultTheme(): IQuillInputTheme;
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
     protected CreateStyleElement_(): void;

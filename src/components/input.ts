@@ -11,6 +11,8 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
 
     protected value_ = '';
     protected file_: File | null = null;
+
+    protected confirmationHandler_: (() => void) | null = null;
     
     @Property({ type: 'object', checkStoredObject: true })
     public theme: IQuillInputTheme | string | null = null;
@@ -57,6 +59,10 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
         this.items_.forEach(item => (item.value = ''));
         this.file_ = null;
         this.value_ = '';
+    }
+
+    public SetConfirmationHandler(handler: (() => void) | null){
+        this.confirmationHandler_ = handler;
     }
 
     public GetDefaultTheme(): IQuillInputTheme{
@@ -236,6 +242,8 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
                     },
                 });
             });
+
+            input.addEventListener('keydown', event => (event.key && event.key.toLowerCase() === 'enter' && this.confirmationHandler_ && this.confirmationHandler_()));
         });
     }
 
@@ -281,6 +289,11 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
                 });
             }
             else if (item === 'color' || item === 'background'){
+                items.push({
+                    type: 'text',
+                    placeholder: 'Color name, hex, rgb, or hsl',
+                });
+                
                 items.push({
                     type: 'color',
                 });

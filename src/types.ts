@@ -71,6 +71,7 @@ export interface IQuillInputItem{
 export interface IQuillInput{
     GetItems(): Array<HTMLInputElement>;
     Reset(): void;
+    SetConfirmationHandler(handler: (() => void) | null): void;
 }
 
 export interface IQuillInputTarget{

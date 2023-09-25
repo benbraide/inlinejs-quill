@@ -18,6 +18,7 @@ export declare class QuillPromptElement extends CustomElement implements IQuillP
     AddQuillInput(input: IQuillInput): void;
     RemoveQuillInput(input: IQuillInput): void;
     Reset(): void;
+    Confirm(): void;
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
 }
 export declare function QuillPromptElementCompact(): void;

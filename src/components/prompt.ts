@@ -67,6 +67,7 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
 
     public AddQuillInput(input: IQuillInput){
         this.inputs_.push(input);
+        input.SetConfirmationHandler(() => this.Confirm());
     }
 
     public RemoveQuillInput(input: IQuillInput){
@@ -76,6 +77,23 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
 
     public Reset(){
         this.inputs_.forEach(input => input.Reset());
+    }
+
+    public Confirm(){
+        this.Toggle(false);
+        this.onsave && EvaluateLater({
+            componentId: this.componentId_,
+            contextElement: this,
+            expression: this.onsave,
+            disableFunctionCall: false,
+        })();
+
+        !this.persist && this.Reset();
+
+        const quill = (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)));
+        
+        this.toggle && quill?.ToggleActivePrompt(this.name);
+        this.highlight && quill?.WaitInstance().then(instance => instance?.focus());
     }
 
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
@@ -93,7 +111,7 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
         this.style.cursor = 'text';
         this.style.overflow = 'hidden';
         
-        this.nativeElement_ = document.createElement('form');
+        this.nativeElement_ = document.createElement('div');
 
         this.nativeElement_.style.width = '50%';
         this.nativeElement_.style.display = 'flex';
@@ -114,30 +132,10 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
             }
         });
 
-        this.nativeElement_.addEventListener('submit', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            this.Toggle(false);
-            this.onsave && EvaluateLater({
-                componentId: this.componentId_,
-                contextElement: this,
-                expression: this.onsave,
-                disableFunctionCall: false,
-            })();
-
-            !this.persist && this.Reset();
-
-            const quill = (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)));
-            
-            this.toggle && quill?.ToggleActivePrompt(this.name);
-            this.highlight && quill?.WaitInstance().then(instance => instance?.focus());
-        });
-        
         super.HandleElementScopeCreated_({ scope, ...rest }, () => {
             if (this.button){
                 const button = document.createElement('button');
-                button.type = 'submit';
+                button.type = 'button';
                 button.textContent = 'Save';
     
                 button.style.marginLeft = '0.5rem';
@@ -150,6 +148,7 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
                 button.style.border = 'none';
     
                 this.nativeElement_?.appendChild(button);
+                button.addEventListener('click', () => this.Confirm());
             }
 
             (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)))?.AddPrompt(this);

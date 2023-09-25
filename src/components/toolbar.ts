@@ -50,6 +50,7 @@ export class QuillToolbarElement extends CustomElement{
 
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
         this.button_ = document.createElement('button');
+        this.button_.type = 'button';
         this.appendChild(this.button_);
         this.button_.addEventListener('click', () => this.HandleClick_());
         
@@ -93,7 +94,7 @@ export class QuillToolbarElement extends CustomElement{
             this.quillInstance_.format(this.name, false);
             update();
         }
-        else if (!Array.isArray(this.value_)){
+        else if (!Array.isArray(this.value_) && this.value_ !== '*'){
             this.quillInstance_.format(this.name, (this.isActive_ ? false : this.value_));
             update();
         }
@@ -110,7 +111,7 @@ export class QuillToolbarElement extends CustomElement{
             return;
         }
         
-        if (this.toggle){
+        if (this.toggle || (typeof this.value_ === 'string' && this.value_ === '*')){//Match any
             this.ToggleActive_(!!format[this.name]);
         }
         else if (typeof this.value_ === 'string'){
@@ -124,7 +125,7 @@ export class QuillToolbarElement extends CustomElement{
     protected ToggleActive_(active: boolean, value?: any){
         if (active != this.isActive_ || (Array.isArray(this.value_) && value !== this.previousValue_)){
             this.isActive_ = active;
-            this.previousValue_ = value;
+            (value !== undefined) && (this.previousValue_ = value);
             this.EvaluateOnActive_(value);
         }
     }
