@@ -243,7 +243,13 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
                 });
             });
 
-            input.addEventListener('keydown', event => (event.key && event.key.toLowerCase() === 'enter' && this.confirmationHandler_ && this.confirmationHandler_()));
+            input.addEventListener('keydown', (event) => {
+                if (event.key && event.key.toLowerCase() === 'enter' && this.confirmationHandler_){
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.confirmationHandler_();
+                }
+            });
         });
     }
 
