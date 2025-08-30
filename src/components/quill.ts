@@ -43,21 +43,21 @@ export class QuillElement extends CustomElement implements IQuillElement{
     public debug = false;
 
     @Property({ type: 'string' })
-    public onready = '';
+    public oncustomready = '';
 
     @Property({ type: 'string' })
-    public oneditorchange = '';
+    public oncustomeditorchange = '';
 
     @Property({ type: 'string' })
-    public ontextchange = '';
+    public oncustomtextchange = '';
 
     @Property({ type: 'string' })
-    public onselectionchanges = '';
+    public oncustomselectionchange = '';
 
     @Property({ type: 'string' })
-    public onchanges = '';
+    public oncustomchange = '';
     
-    @Property({ type: 'object', checkStoredObject: true })
+    @Property({ type: 'json', checkStoredObject: true })
     public UpdateModulesProperty(value: Record<string, any>){
         this.modules_ = value;
     }
@@ -65,11 +65,6 @@ export class QuillElement extends CustomElement implements IQuillElement{
     @Property({ type: 'string' })
     public UpdatePromptProperty(value: string){
         this.WaitInstance().then(() => this.SetPrompt_(value));
-    }
-
-    @Property({ type: 'array', checkStoredObject: true })
-    public UpdateResourcesProperty(value: Array<any>){
-        this.resources_ = value;
     }
 
     public constructor(){
@@ -150,10 +145,11 @@ export class QuillElement extends CustomElement implements IQuillElement{
         }
 
         const handlers = this.eventHandlers_[event];
-        handlers.splice(handlers.indexOf(handler), 1);
+        const index = handlers.indexOf(handler);
+        (index > -1) && handlers.splice(index, 1);
 
         if (handlers.length === 0){
-            this.quill_?.off(<any>event, this.boundEvents_[event]);
+            this.quill_?.off(event as any, this.boundEvents_[event]);
             delete this.boundEvents_[event];
         }
     }
@@ -206,13 +202,13 @@ export class QuillElement extends CustomElement implements IQuillElement{
             };
 
             const events = {
-                oneditorchange: 'editor-change',
-                ontextchange: 'text-change',
-                onselectionchanges: 'selection-change',
+                oncustomeditorchange: 'editor-change',
+                oncustomtextchange: 'text-change',
+                oncustomselectionchange: 'selection-change',
             };
 
             Object.entries(events).forEach(([key, event]) => {
-                if (!this[key] && !this.onchanges){
+                if (!this[key] && !this.oncustomchange){
                     return;
                 }
 
@@ -224,7 +220,7 @@ export class QuillElement extends CustomElement implements IQuillElement{
                         },
                     });
 
-                    evaluate(this.onchanges, {
+                    evaluate(this.oncustomchange, {
                         event: {
                             name: event,
                             args: eventArgs,
@@ -233,7 +229,7 @@ export class QuillElement extends CustomElement implements IQuillElement{
                 });
             });
 
-            evaluate(this.onready);
+            evaluate(this.oncustomready);
         });
     }
 
@@ -241,7 +237,7 @@ export class QuillElement extends CustomElement implements IQuillElement{
         super.HandleElementScopeCreated_({ scope, ...rest }, postAttributesCallback);
         scope.AddPostProcessCallback(() => (!this.defer && this.Mount()));
         scope.AddUninitCallback(() => {
-            this.quill_ && Object.keys(this.boundEvents_).forEach(event => this.quill_!.off(<any>event, this.boundEvents_[event]));
+            this.quill_ && Object.keys(this.boundEvents_).forEach(event => this.quill_!.off(event as any, this.boundEvents_[event]));
             this.quill_ = null;
             this.container = null;
         });
@@ -285,7 +281,7 @@ export class QuillElement extends CustomElement implements IQuillElement{
             }));
         };
 
-        this.quill_?.on(<any>event, this.boundEvents_[event]);
+        this.quill_?.on(event as any, this.boundEvents_[event]);
     }
 }
 

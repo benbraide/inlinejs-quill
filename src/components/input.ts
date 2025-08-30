@@ -9,6 +9,7 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
     protected items_ = new Array<HTMLInputElement>();
     protected expandedItems_: Array<IQuillInputItem | string> | null = null;
 
+    protected className_ = '';
     protected value_ = '';
     protected file_: File | null = null;
 
@@ -24,7 +25,7 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
     public placeholder = '';
 
     @Property({ type: 'string' })
-    public onvaluechange = '';
+    public oncustomvaluechange = '';
 
     public constructor(){
         super();
@@ -90,45 +91,39 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
         
         super.HandleElementScopeCreated_({ scope, ...rest }, () => {
             this.CreateStyleElement_();
-            this.classList.add(QuillInputElement.className);
+            this.className_ && this.classList.add(this.className_);
             
             this.CreateInputElements_();
 
-            let itemsByType: Record<string, Array<HTMLInputElement>> | null = null, sortItemsByType = () => {
-                let items = {};
-                for (let item of this.items_){
-                    const type = item.type.toLowerCase();
-                    !(type in items) && (items[type] = new Array<HTMLInputElement>());
-                    items[type].push(item);
+            const availableInputs = [...this.items_];
+            const findAndUseInput = (predicate: (input: HTMLInputElement) => boolean): HTMLInputElement | null => {
+                const index = availableInputs.findIndex(predicate);
+                if (index > -1) {
+                    const [input] = availableInputs.splice(index, 1);
+                    return input;
                 }
-                return items;
+                return null;
             };
 
+            // Process typed native elements first
             Object.entries(this.quillNativeElements_).forEach(([type, elements]) => {
-                itemsByType = (itemsByType || sortItemsByType());
-                if (!(type in itemsByType)){
-                    return;
-                }
-                
-                const items = itemsByType[type];
-                for (let i = 0; i < elements.length; ++i){
-                    if (i >= items.length){
-                        break;
+                elements.forEach(nativeEl => {
+                    const input = findAndUseInput(item => item.type.toLowerCase() === type);
+                    if (input) {
+                        this.nativeElement_ = input;
+                        this.CopyNativeElements_(nativeEl);
                     }
-
-                    this.nativeElement_ = items[i];
-                    this.CopyNativeElements_(elements[i]);
-                }
+                });
             });
             
-            for (let i = 1; i < this.nativeElements_.length; ++i){
-                if (i >= this.items_.length){
-                    break;
+            // Process typeless native elements with the remaining available inputs
+            this.nativeElements_.forEach(nativeEl => {
+                const input = findAndUseInput(() => true); // Get the next available input
+                if (input) {
+                    this.nativeElement_ = input;
+                    this.CopyNativeElements_(nativeEl);
                 }
-
-                this.nativeElement_ = this.items_[i];
-                this.CopyNativeElements_(this.nativeElements_[i]);
-            }
+            });
             
             this.nativeElement_ = null;
             postAttributesCallback && postAttributesCallback();
@@ -136,16 +131,16 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
     }
 
     protected CreateStyleElement_(){
-        if (QuillInputElement.className || this.theme === 'none'){
+        if (this.className_ || this.theme === 'none'){
             return;
         }
 
         const theme = Object.assign({}, this.GetDefaultTheme(), (((typeof this.theme === 'string') ? null : this.theme) || {}));
-        QuillInputElement.className = `quill-input-${RandomString(8)}`;
+        this.className_ = `quill-input-${RandomString(8)}`;
 
         const style = document.createElement('style');
         style.innerHTML = `
-            .${QuillInputElement.className}{
+            .${this.className_}{
                 width: ${theme.width};
                 display: flex;
                 flex-direction: column;
@@ -162,11 +157,11 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
                 overflow: hidden;
             }
 
-            .${QuillInputElement.className}:focus-within{
+            .${this.className_}:focus-within{
                 border-color: ${theme.focusBorderColor};
             }
 
-            .${QuillInputElement.className} input{
+            .${this.className_} input{
                 width: 100%;
                 padding-top: ${theme.paddingTop};
                 padding-right: ${theme.paddingRight};
@@ -180,11 +175,11 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
                 outline: none;
             }
             
-            .${QuillInputElement.className} input::placeholder{
+            .${this.className_} input::placeholder{
                 color: ${theme.placeholderColor};
             }
 
-            .${QuillInputElement.className} input + input{
+            .${this.className_} input + input{
                 border-top-color: ${theme.borderColor};
                 border-top-width: ${theme.borderWidth};
                 border-top-style: ${theme.borderStyle};
@@ -228,10 +223,10 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
 
                 this.items_.forEach(item => ((item !== input) && (item.value = '')));
 
-                this.onvaluechange && EvaluateLater({
+                this.oncustomvaluechange && EvaluateLater({
                     componentId: this.componentId_,
                     contextElement: this,
-                    expression: this.onvaluechange,
+                    expression: this.oncustomvaluechange,
                     disableFunctionCall: false,
                 })(undefined, [], {
                     details: {
@@ -311,8 +306,6 @@ export class QuillInputElement extends CustomElement implements IQuillInput{
 
         this.expandedItems_ = items;
     }
-
-    public static className = '';
 }
 
 export function QuillInputElementCompact(){

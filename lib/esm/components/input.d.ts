@@ -5,13 +5,14 @@ export declare class QuillInputElement extends CustomElement implements IQuillIn
     protected quillNativeElements_: Record<string, Array<INativeElement & HTMLElement>>;
     protected items_: HTMLInputElement[];
     protected expandedItems_: Array<IQuillInputItem | string> | null;
+    protected className_: string;
     protected value_: string;
     protected file_: File | null;
     protected confirmationHandler_: (() => void) | null;
     theme: IQuillInputTheme | string | null;
     items: Array<IQuillInputItem | string> | null;
     placeholder: string;
-    onvaluechange: string;
+    oncustomvaluechange: string;
     constructor();
     AddNativeElement(element: INativeElement & HTMLElement): void;
     RemoveNativeElement(element: INativeElement): void;
@@ -23,6 +24,5 @@ export declare class QuillInputElement extends CustomElement implements IQuillIn
     protected CreateStyleElement_(): void;
     protected CreateInputElements_(): void;
     protected ExpandItems_(): void;
-    static className: string;
 }
 export declare function QuillInputElementCompact(): void;

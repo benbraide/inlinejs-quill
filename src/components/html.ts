@@ -15,11 +15,18 @@ export class QuillHtmlElement extends CustomElement{
 
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
         this.codeBlock_ = document.createElement('code');
+        this.codeBlock_.style.whiteSpace = 'pre-wrap';
         this.appendChild(this.codeBlock_);
         
         this.SetNativeElement_(this.codeBlock_);
         super.HandleElementScopeCreated_({ scope, ...rest }, () => {
-            (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddEventHandler' in ancestor)))?.AddEventHandler('text-change', ({ instance }) => {
+            const quill = (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddEventHandler' in ancestor)));
+
+            quill?.WaitInstance().then((instance) => {
+                instance && this.OutputHtml_(instance.root);
+            });
+            
+            quill?.AddEventHandler('text-change', ({ instance }) => {
                 this.OutputHtml_(instance.root);
             });
             postAttributesCallback && postAttributesCallback();
@@ -32,18 +39,16 @@ export class QuillHtmlElement extends CustomElement{
         }
 
         if (refresh){
-            while (this.codeBlock_.firstChild){
-                this.codeBlock_.removeChild(this.codeBlock_.firstChild);
-            }
+            this.codeBlock_.textContent = '';
         }
 
         const tagName = element.tagName.toLowerCase(), generateTag = (close = false, tag = '') => {
             if (close){
-                return `&lt;/${tagName}&gt;`;
+                return `</${tagName}>`;
             }
 
             const attributes = Array.from(element.attributes).map(({ name, value }) => `${name}="${value}"`).join(' ');
-            return (attributes ? `&lt;${tag || tagName} ${attributes}&gt;` : `&lt;${tag || tagName}&gt;`);
+            return (attributes ? `<${tag || tagName} ${attributes}>` : `<${tag || tagName}>`);
             
         };
 
@@ -57,17 +62,17 @@ export class QuillHtmlElement extends CustomElement{
                     this.OutputHtml_(child, (pad + 1), false);
                 }
                 else{
-                    this.AddHtmlLine_((pad + 1), (child.textContent || '').replace(/\s/g, '&nbsp;'));
+                    this.AddHtmlLine_((pad + 1), (child.textContent || ''));
                 }
             });
 
             !refresh && !singleTags.includes(tagName) && this.AddHtmlLine_(pad, generateTag(true));
         }
         else if (!refresh){
-            this.AddHtmlLine_(pad, (generateTag() + (element.textContent || '').replace(/\s/g, '&nbsp;') + (singleTags.includes(tagName) ? '' : generateTag(true))));
+            this.AddHtmlLine_(pad, (generateTag() + (element.textContent || '') + (singleTags.includes(tagName) ? '' : generateTag(true))));
         }
         else{
-            this.AddHtmlLine_(pad, (generateTag(false, 'p') + generateTag(true, 'p')));
+            this.AddHtmlLine_(pad, '<p></p>');
         }
     }
 
@@ -76,9 +81,8 @@ export class QuillHtmlElement extends CustomElement{
             return;
         }
 
-        const div = document.createElement('div');
-        div.innerHTML = (Array.from({ length: (pad * 2) }).map(() => '&nbsp;').join('') + value);
-        this.codeBlock_.appendChild(div);
+        const line = `${' '.repeat(pad * 2)}${value}\n`;
+        this.codeBlock_.appendChild(document.createTextNode(line));
     }
 }
 

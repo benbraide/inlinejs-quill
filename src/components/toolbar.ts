@@ -22,7 +22,7 @@ export class QuillToolbarElement extends CustomElement{
     protected previousValue_: string | number | boolean | null = null;
     protected isActive_ = false;
     
-    @Property({ type: 'object', checkStoredObject: true })
+    @Property({ type: 'json', checkStoredObject: true })
     public quill: IQuillElement | null = null;
 
     @Property({ type: 'string' })
@@ -30,8 +30,8 @@ export class QuillToolbarElement extends CustomElement{
 
     @Property({ type: 'object', checkStoredObject: true })
     public UpdateValueProperty(value: string | Array<string | number | boolean>){
-        if (typeof value === 'string' && value.startsWith('group:') && value.substring(6) in QuillToolbarGroups){//E.g. group:header
-            this.value_ = QuillToolbarGroups[value.substring(6)];
+        if (typeof value === 'string' && value.startsWith('group:') && value.substring(6) in QuillToolbarGroups){ //E.g. group:header
+            this.value_ = QuillToolbarGroups[value.substring(6) as keyof typeof QuillToolbarGroups];
         }
         else{
             this.value_ = value;
@@ -42,7 +42,7 @@ export class QuillToolbarElement extends CustomElement{
     public toggle = false;
 
     @Property({ type: 'string' })
-    public onactive = '';
+    public oncustomactive = '';
 
     public constructor(){
         super();
@@ -115,7 +115,17 @@ export class QuillToolbarElement extends CustomElement{
             this.ToggleActive_(!!format[this.name]);
         }
         else if (typeof this.value_ === 'string'){
-            this.ToggleActive_(format[this.name] === ((typeof format[this.name] === 'number') ? parseFloat(this.value_) : this.value_));
+            let isActive = false;
+            if (typeof format[this.name] === 'number'){
+                isActive = (format[this.name] === parseFloat(this.value_));
+            }
+            else if (typeof format[this.name] === 'boolean'){
+                isActive = (format[this.name] === (this.value_ === 'true'));
+            }
+            else{
+                isActive = (format[this.name] === this.value_);
+            }
+            this.ToggleActive_(isActive);
         }
         else{//Array
             this.ToggleActive_(this.value_.includes(format[this.name]), format[this.name]);
@@ -131,10 +141,10 @@ export class QuillToolbarElement extends CustomElement{
     }
 
     protected EvaluateOnActive_(value?: any){
-        this.onactive && EvaluateLater({
+        this.oncustomactive && EvaluateLater({
             componentId: this.componentId_,
             contextElement: this,
-            expression: this.onactive,
+            expression: this.oncustomactive,
             disableFunctionCall: false,
         })(undefined, [], {
             state: {

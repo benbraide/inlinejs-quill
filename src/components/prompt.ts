@@ -80,19 +80,17 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
     }
 
     public Confirm(){
-        this.Toggle(false);
         this.onsave && EvaluateLater({
             componentId: this.componentId_,
             contextElement: this,
             expression: this.onsave,
             disableFunctionCall: false,
         })();
-
+ 
         !this.persist && this.Reset();
-
+ 
         const quill = (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)));
-        
-        this.toggle && quill?.ToggleActivePrompt(this.name);
+        quill?.SetActivePrompt('');
         this.highlight && quill?.WaitInstance().then(instance => instance?.focus());
     }
 
@@ -161,21 +159,20 @@ export class QuillPromptElement extends CustomElement implements IQuillPrompt, I
                 return;
             }
             
+            const quill = (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)));
             if (this.toggle){
-                const quill = (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)));
-                quill?.ToggleActivePrompt(this.name);
+                quill?.SetActivePrompt('');
+                this.ondismiss && EvaluateLater({
+                    componentId: this.componentId_,
+                    contextElement: this,
+                    expression: this.ondismiss,
+                    disableFunctionCall: false,
+                })();
+            }
+            
+            if (this.highlight){
                 quill?.WaitInstance().then(instance => instance?.focus());
             }
-            else if (this.highlight){
-                (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddPrompt' in ancestor)))?.WaitInstance().then(instance => instance?.focus());
-            }
-
-            this.ondismiss && EvaluateLater({
-                componentId: this.componentId_,
-                contextElement: this,
-                expression: this.ondismiss,
-                disableFunctionCall: false,
-            })();
         });
     }
 }

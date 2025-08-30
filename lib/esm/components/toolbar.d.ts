@@ -12,7 +12,7 @@ export declare class QuillToolbarElement extends CustomElement {
     name: string;
     UpdateValueProperty(value: string | Array<string | number | boolean>): void;
     toggle: boolean;
-    onactive: string;
+    oncustomactive: string;
     constructor();
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void): void;
     protected HandleClick_(): void;

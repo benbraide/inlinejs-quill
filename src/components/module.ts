@@ -10,7 +10,7 @@ export class QuillModuleElement extends CustomElement{
     @Property({ type: 'string' })
     public name = '';
 
-    @Property({ type: 'object', checkStoredObject: true })
+    @Property({ type: 'json', checkStoredObject: true })
     public value: any = null;
 
     public constructor(){
@@ -22,7 +22,8 @@ export class QuillModuleElement extends CustomElement{
 
     protected HandleElementScopeCreated_({ scope, ...rest }: IElementScopeCreatedCallbackParams, postAttributesCallback?: () => void){
         super.HandleElementScopeCreated_({ scope, ...rest }, () => {
-            (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddModule' in ancestor)))?.AddModule(this.name, (this.value || true));
+            const value = !this.value || this.value === 'null' || this.value === 'undefined' ? true : this.value;
+            (this.quill || FindAncestor<IQuillElement>(this, ancestor => ('AddModule' in ancestor)))?.AddModule(this.name, value);
             postAttributesCallback && postAttributesCallback();
         });
     }

@@ -2,9 +2,8 @@ import { IElementScopeCreatedCallbackParams } from "@benbraide/inlinejs";
 import { CustomElement } from "@benbraide/inlinejs-element";
 import { IQuillElement } from "../types";
 export declare class QuillCommandElement extends CustomElement {
-    protected quill_: IQuillElement | null;
     protected value_: any;
-    UpdateQuillProperty(value: IQuillElement | null): void;
+    quill: IQuillElement | null;
     name: string;
     UpdateValueProperty(value: any): void;
     constructor();

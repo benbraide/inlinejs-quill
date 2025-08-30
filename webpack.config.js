@@ -14,5 +14,8 @@ module.exports = {
        rules: [{ test: /\.ts$/, loader: "ts-loader" }]
    },
    mode: 'development',
-   devtool: false
+   devtool: false,
+   optimization: {
+        usedExports: true,
+    },
 }
